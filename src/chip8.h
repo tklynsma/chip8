@@ -1,26 +1,38 @@
 #ifndef CHIP8_H
 #define CHIP8_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
 class Chip8;
 
 typedef unsigned char byte;
 typedef unsigned short word;
 typedef void (Chip8::*Operation)();
 
+const int MEM_SIZE       = 4096;
+const int REG_SIZE       = 16;
+const int STACK_SIZE     = 16;
+const int DISPLAY_WIDTH  = 64;
+const int DISPLAY_HEIGHT = 32;
+const int NUM_KEYS       = 16;
+
 class Chip8 {
     public:
-        Chip8() {}
+        Chip8();
         void initialize();
         void cycle();
+        void set_key(byte index, bool value);
     private:
         // Memory and general purpose registers:
-        byte memory_[4096], V_[16];
+        byte memory_[MEM_SIZE], V_[REG_SIZE];
 
         // The index register and program counter:
         word I_, pc_;
 
         // The stack and stack pointer:
-        word stack_[16];
+        word stack_[STACK_SIZE];
         byte sp_;
 
         // Delay and sound timers:
@@ -30,23 +42,21 @@ class Chip8 {
         word opcode_;
 
         // The display:
-        bool display[64][32];
+        bool display_[DISPLAY_WIDTH][DISPLAY_HEIGHT];
 
-        // ---------------------------------------------------------------------------
+        // Key status:
+        bool key_[NUM_KEYS];
+
         // Decoding and executing operations:
-        // ---------------------------------------------------------------------------
-
         void exec_operation();  // Decode and execute the operation.
         void exec_zero();       // Decode and execute operations starting with 0.
         void exec_arithmetic(); // Decode and execute operations starting with 8.
         void exec_key();        // Decode and execute operations starting with E.
         void exec_memory();     // Decode and execute operations starting with F.
 
-        // ---------------------------------------------------------------------------
         // Instructions:
-        // ---------------------------------------------------------------------------
-        
         void nop();
+        void clear();           // 00E0: Clears the screen.
         void ret();             // 00EE: Return from subroutine.
         void jump();            // 1NNN: Jump to address NNN.
         void call();            // 2NNN: Calls subroutine at NNN.
@@ -67,10 +77,19 @@ class Chip8 {
         void skip_neq();        // 9XY0: Skips the next instruction if VX != VY.
         void set_index();       // ANNN: Sets I to the address NNN.
         void jump_offset();     // BNNN: Jumps to the address NNN plus V0.
-        void rand();            // CXNN: Sets VX to NN and a random number.
-        void draw();            // DXYN: Draws the sprite (8xN) stored at address I to (VX, VY).
-        void reg_dump();        // FX55: Stores V0 to VX in memory starting at address I.
-        void reg_load();        // FX65: Fills V0 to VX from memory starting at address I.
+        void random_number();   // CXNN: Sets VX to a random number with a mask of NN.
+        void draw();            // DXYN: Draws the sprite (8xN) at addr I to (VX, VY).
+        void skip_eq_key();     // EX9E: Skips the next instr if key VX is pressed.
+        void skip_neq_key();    // EXA1: Skips the next instr if key VX isn't pressed.
+        void get_delay();       // FX07: Sets VX to the value of the delay timer.
+        void get_key();         // FX0A: A key press is awaited, and stored in VX.
+        void set_delay();       // FX15: Sets the delay timer to VX.
+        void set_sound();       // FX18: Sets the sound timer to VX.
+        void add_index();       // FX1E: Adds VX to I.
+        void sprite_addr();     // FX29: Sets I to the location of the sprite VX.
+        void bcd();             // FX33: Stores the bcd repr of VX at addr I.
+        void reg_dump();        // FX55: Stores V0 to VX in memory starting at addr I.
+        void reg_load();        // FX65: Fills V0 to VX from mem starting at addr I.
 
     #if defined(UNIT_TEST)
     friend class Chip8Test;
