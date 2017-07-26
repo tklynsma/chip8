@@ -311,15 +311,24 @@ TEST_CASE("op_FX07", "[cpu]") {
 TEST_CASE("op_FX0A", "[cpu]") {
     Chip8Test cpu;
     cpu.load_opcode(0x200, 0xFA0A);
-    cpu.cycle();
-    REQUIRE( cpu.get_register(0xA) == 0x00 );
-    REQUIRE( cpu.get_pc() == 0x200 );
-
-    cpu.set_key(0x03, true);
     cpu.set_key(0x07, true);
+    cpu.set_key(0x03, true);
     cpu.cycle();
     REQUIRE( cpu.get_register(0xA) == 0x03 );
     REQUIRE( cpu.get_pc() == 0x202 );
+
+    cpu.set_key(0x03, false);
+    cpu.set_key(0x07, false);
+    cpu.load_register(0xA, 0x00);
+    cpu.load_opcode(0x202, 0xFA0A);
+    cpu.cycle();
+    REQUIRE( cpu.get_register(0xA) == 0x00 );
+    REQUIRE( cpu.get_pc() == 0x202 );
+
+    cpu.set_key(0x03, true);
+    cpu.set_key(0x07, true);
+    REQUIRE( cpu.get_register(0xA) == 0x03 );
+    REQUIRE( cpu.get_pc() == 0x204 );
 }
 
 TEST_CASE("op_FX15", "[cpu]") {

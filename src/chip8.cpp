@@ -42,6 +42,7 @@ void Chip8::initialize() {
     }
 
     // Clear display
+    draw_flag_ = true;
     for (int i = 0; i < DISPLAY_WIDTH; i++) {
         for (int j = 0; j < DISPLAY_HEIGHT; j++) {
             display_[i][j] = 0;
@@ -60,6 +61,9 @@ void Chip8::initialize() {
     
     // Reset timers:
     delay_timer_ = sound_timer_ = 0;
+
+    // Reset store key flag:
+    store_key_ = false;
 }
 
 // Fetch, decode and execute the next operation.
@@ -68,7 +72,32 @@ void Chip8::cycle() {
     exec_operation();
 }
 
-void Chip8::set_key(byte index, bool value) { key_[index] = value; }
+// Load the rom into memory.
+void Chip8::load_rom(char* data, int num_bytes) {
+    for (int i = 0; i < num_bytes; i++) {
+        memory_[0x200 + i] = (byte) data[i];
+    }
+}
+
+// Update the delay and sound timer.
+void Chip8::update_timers() {
+    if (delay_timer_ > 0) { delay_timer_--; }
+    if (sound_timer_ > 0) { sound_timer_--; }
+}
+
+void Chip8::set_key(byte index, bool value) {
+    key_[index] = value;
+
+    if (store_key_ && value) {
+        V_[key_index_] = index;
+        store_key_ = false;
+        pc_ += 2;
+    }
+}
+
+bool Chip8::is_pixel(int x, int y) { return display_[x][y]; }
+bool Chip8::is_draw_flag() { return draw_flag_; }
+void Chip8::reset_draw_flag() { draw_flag_ = false; }
 
 // -----------------------------------------------------------------------------------
 // Decoding and executing operations:
@@ -77,75 +106,68 @@ void Chip8::set_key(byte index, bool value) { key_[index] = value; }
 // Decode and execute the operation.
 void Chip8::exec_operation() {
     static Operation opcode_table[16] = {
-        &Chip8::exec_zero,          // 0XYZ
-        &Chip8::jump,               // 1NNN
-        &Chip8::call,               // 2NNN
-        &Chip8::skip_eq_const,      // 3XNN
-        &Chip8::skip_neq_const,     // 4XNN
-        &Chip8::skip_eq,            // 5XY0
-        &Chip8::assign_const,       // 6XNN
-        &Chip8::add_const,          // 7XNN
-        &Chip8::exec_arithmetic,    // 8XYZ
-        &Chip8::skip_neq,           // 9XY0
-        &Chip8::set_index,          // ANNN
-        &Chip8::jump_offset,        // BNNN
-        &Chip8::random_number,      // CXNN
-        &Chip8::draw,               // DXYN
-        &Chip8::exec_key,           // EXYZ
-        &Chip8::exec_memory,        // FXYZ
+        &Chip8::exec_zero,                  // 0XYZ
+        &Chip8::jump,                       // 1NNN
+        &Chip8::call,                       // 2NNN
+        &Chip8::skip_eq_const,              // 3XNN
+        &Chip8::skip_neq_const,             // 4XNN
+        &Chip8::skip_eq,                    // 5XY0
+        &Chip8::assign_const,               // 6XNN
+        &Chip8::add_const,                  // 7XNN
+        &Chip8::exec_arithmetic,            // 8XYZ
+        &Chip8::skip_neq,                   // 9XY0
+        &Chip8::set_index,                  // ANNN
+        &Chip8::jump_offset,        i       // BNNN
+        &Chip8::random_number,              // CXNN
+        &Chip8::draw,                       // DXYN
+        &Chip8::exec_key,                   // EXYZ
+        &Chip8::exec_memory,                // FXYZ
     };
     (this->*opcode_table[(opcode_ & 0xF000) >> 12])();
 }
 
 void Chip8::exec_arithmetic() {
-    static Operation opcode_table_arithmetic[16] = {
-        &Chip8::assign,             // 8XY0
-        &Chip8::bitwise_or,         // 8XY1
-        &Chip8::bitwise_and,        // 8XY2
-        &Chip8::bitwise_xor,        // 8XY3
-        &Chip8::add,                // 8XY4
-        &Chip8::sub,                // 8XY5
-        &Chip8::shift_right,        // 8XY6
-        &Chip8::sub_reverse,        // 8XY7
-        &Chip8::nop,
-        &Chip8::nop,
-        &Chip8::nop,
-        &Chip8::nop,
-        &Chip8::nop,
-        &Chip8::nop,
-        &Chip8::shift_left,         // 8XYE
-        &Chip8::nop,
-    };
-    (this->*opcode_table_arithmetic[opcode_ & 0x000F])();
+    switch (opcode_ & 0x000F) {
+        case 0x0:   assign();       break;  // 8XY0
+        case 0x1:   bitwise_or();   break;  // 8XY1
+        case 0x2:   bitwise_and();  break;  // 8XY2
+        case 0x3:   bitwise_xor();  break;  // 8XY3
+        case 0x4:   add();          break;  // 8XY4
+        case 0x5:   sub();          break;  // 8XY5
+        case 0x6:   shift_right();  break;  // 8XY6
+        case 0x7:   sub_reverse();  break;  // 8XY7
+        case 0xE:   shift_left();   break;  // 8XYE
+        default:    nop();          break;
+    }
 }
 
 void Chip8::exec_zero() {
     switch (opcode_ & 0x0FFF) {
-        case 0x0E0: clear();        break;
-        case 0x0EE: ret();          break;
+        case 0x0E0: clear();        break;  // 00E0
+        case 0x0EE: ret();          break;  // 00EE
         default:    nop();          break;
     }
 }
 
 void Chip8::exec_key() {
     switch (opcode_ & 0x00FF) {
-        case 0x9E:  skip_eq_key();  break;
-        case 0xA1:  skip_neq_key(); break;
+        case 0x9E:  skip_eq_key();  break;  // EX9E
+        case 0xA1:  skip_neq_key(); break;  // EXA1
         default:    nop();          break;
     }
 }
 
 void Chip8::exec_memory() {
     switch (opcode_ & 0x00FF) {
-        case 0x07:  get_delay();    break;
-        case 0x0A:  get_key();      break;
-        case 0x15:  set_delay();    break;
-        case 0x18:  set_sound();    break;
-        case 0x1E:  add_index();    break;
-        case 0x29:  sprite_addr();  break;
-        case 0x33:  bcd();          break;
-        case 0x55:  reg_dump();     break;
-        case 0x65:  reg_load();     break;
+        case 0x07:  get_delay();    break;  // FX07
+        case 0x0A:  get_key();      break;  // FX0A
+        case 0x15:  set_delay();    break;  // FX15
+        case 0x18:  set_sound();    break;  // FX18
+        case 0x1E:  add_index();    break;  // FX1E
+        case 0x29:  sprite_addr();  break;  // FX29
+        case 0x33:  bcd();          break;  // FX33
+        case 0x55:  reg_dump();     break;  // FX55
+        case 0x65:  reg_load();     break;  // FX65
         default:    nop();          break;
     }
 }
@@ -311,7 +333,7 @@ void Chip8::draw() {
     int x_start = V_[(opcode_ & 0x0F00) >> 8];
     int y_start = V_[(opcode_ & 0x00F0) >> 4];
     int height  = opcode_ & 0x000F;
-    bool collision = false;
+    V_[0xF] = 0x00;
 
     for (int line = 0; line < height; line++) {
         for (int bit = 0; bit < 8; bit++) {
@@ -319,13 +341,13 @@ void Chip8::draw() {
             int x = (x_start + bit ) % DISPLAY_WIDTH;
             int y = (y_start + line) % DISPLAY_HEIGHT;
             if (display_[x][y] && pixel) {
-                collision = true;
+                V_[0xF] = 0x01; // collision
             }
             display_[x][y] ^= pixel;
         }
     }
 
-    V_[0xF] = collision ? 1 : 0;
+    draw_flag_ = true;
     pc_ += 2;
 }
 
@@ -347,14 +369,19 @@ void Chip8::get_delay() {
 
 // FX0A: A key press is awaited, and then stored in VX.
 void Chip8::get_key() {
-    bool key_pressed = false;
-
-    for (byte i = 0; i < 16 && !key_pressed; i++) {
-        if (key_[i]) {
-            V_[(opcode_ & 0x0F00) >> 8] = i;
-            key_pressed = true;
-            pc_ += 2;
+    if (!store_key_) {
+        // Check if any key is already pressed and if so store it in VX.
+        for (byte i = 0; i < 16; i++) {
+            if (key_[i]) {
+                V_[(opcode_ & 0x0F00) >> 8] = i;
+                pc_ += 2;
+                return;
+            }
         }
+
+        // If no key was pressed then store the next keypress in VX.
+        key_index_ = (opcode_ & 0x0F00) >> 8;
+        store_key_ = true;
     }
 }
 

@@ -23,7 +23,12 @@ class Chip8 {
         Chip8();
         void initialize();
         void cycle();
+        void update_timers();
+        void load_rom(char* data, int num_bytes);
         void set_key(byte index, bool value);
+        bool is_pixel(int x, int y);
+        bool is_draw_flag();
+        void reset_draw_flag();
     private:
         // Memory and general purpose registers:
         byte memory_[MEM_SIZE], V_[REG_SIZE];
@@ -43,9 +48,11 @@ class Chip8 {
 
         // The display:
         bool display_[DISPLAY_WIDTH][DISPLAY_HEIGHT];
+        bool draw_flag_;
 
         // Key status:
-        bool key_[NUM_KEYS];
+        bool key_[NUM_KEYS], store_key_;
+        byte key_index_;
 
         // Decoding and executing operations:
         void exec_operation();  // Decode and execute the operation.
