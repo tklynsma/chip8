@@ -117,7 +117,7 @@ void Chip8::exec_operation() {
         &Chip8::exec_arithmetic,            // 8XYZ
         &Chip8::skip_neq,                   // 9XY0
         &Chip8::set_index,                  // ANNN
-        &Chip8::jump_offset,        i       // BNNN
+        &Chip8::jump_offset,                // BNNN
         &Chip8::random_number,              // CXNN
         &Chip8::draw,                       // DXYN
         &Chip8::exec_key,                   // EXYZ
