@@ -97,7 +97,10 @@ void Chip8::set_key(byte index, bool value) {
 
 bool Chip8::is_pixel(int x, int y) { return display_[x][y]; }
 bool Chip8::is_draw_flag() { return draw_flag_; }
+bool Chip8::is_sound_flag() { return sound_flag_; }
 void Chip8::reset_draw_flag() { draw_flag_ = false; }
+void Chip8::reset_sound_flag() { sound_flag_ = false; }
+byte Chip8::get_sound_duration() { return sound_duration_; }
 
 // -----------------------------------------------------------------------------------
 // Decoding and executing operations:
@@ -188,6 +191,7 @@ void Chip8::clear() {
             display_[i][j] = 0;
         }
     }
+    draw_flag_ = true;
     pc_ += 2;
 }
 
@@ -393,8 +397,11 @@ void Chip8::set_delay() {
 
 // FX18: Sets the sound timer to VX.
 void Chip8::set_sound() {
-    sound_timer_ = V_[(opcode_ & 0x0F00) >> 8];
-    pc_ += 2;
+    if (!sound_flag_) {
+        sound_timer_ = sound_duration_ = V_[(opcode_ & 0x0F00) >> 8];
+        sound_flag_ = true;
+        pc_ += 2;
+    }
 }
 
 // FX1E: Adds VX to I.

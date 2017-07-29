@@ -28,7 +28,10 @@ class Chip8 {
         void set_key(byte index, bool value);
         bool is_pixel(int x, int y);
         bool is_draw_flag();
+        bool is_sound_flag();
         void reset_draw_flag();
+        void reset_sound_flag();
+        byte get_sound_duration();
     private:
         // Memory and general purpose registers:
         byte memory_[MEM_SIZE], V_[REG_SIZE];
@@ -40,8 +43,8 @@ class Chip8 {
         word stack_[STACK_SIZE];
         byte sp_;
 
-        // Delay and sound timers:
-        byte delay_timer_, sound_timer_;
+        // Delay timer:
+        byte delay_timer_;
 
         // Current opcode:
         word opcode_;
@@ -53,6 +56,10 @@ class Chip8 {
         // Key status:
         bool key_[NUM_KEYS], store_key_;
         byte key_index_;
+
+        // Sound:
+        byte sound_timer_, sound_duration_;
+        bool sound_flag_;
 
         // Decoding and executing operations:
         void exec_operation();  // Decode and execute the operation.

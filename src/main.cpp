@@ -1,15 +1,22 @@
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_mixer.h>
 #include <fstream>
 #include <stdio.h>
 #include "chip8.h"
 
+// Display:
 const int SCALE = 10;
 const SDL_Color COLOR_BLACK = { 0x00, 0x00, 0x00, 0xFF };
 const SDL_Color COLOR_WHITE = { 0xFF, 0xFF, 0xFF, 0xFF };
 
-const float MIN_CYCLES_PER_MS = 0.015625;
-const float MAX_CYCLES_PER_MS = 64.0;
+void setRenderDrawColor(SDL_Renderer* renderer, SDL_Color c) {
+    SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, c.a);
+}
 
+SDL_Window* window = NULL;
+SDL_Renderer* renderer = NULL;
+
+// Keypad:
 const int KEYMAP[16] = {
     SDLK_x, SDLK_1, SDLK_2, SDLK_3, 
     SDLK_q, SDLK_w, SDLK_e, SDLK_a,
@@ -17,24 +24,33 @@ const int KEYMAP[16] = {
     SDLK_4, SDLK_r, SDLK_f, SDLK_v
 };
 
-unsigned int last_cycle_time  = 0;
-unsigned int last_update_time = 0;
-float cycles_per_ms           = 0.5;
-float num_cycles              = 0.0;
+// Timing:
+const float MIN_CYCLES_PER_MS = 0.015625;
+const int MAX_SPEED           = 10;
 
-SDL_Window* window = NULL;
-SDL_Renderer* renderer = NULL;
+float cycles_per_ms;
+int speed = 6;
+
+// Sound:
+const int SAMPLE_FREQUENCY = 22050;
+const int TONE_FREQUENCY   = 960;
+const int TONE_VOLUME      = 32;
+const int SOUND_VOLUME     = 32;
+const int MAX_SECONDS      = 5;
+
+Uint8* audio_buffer = NULL;
+Mix_Chunk beep;
+
+// CPU:
 Chip8 cpu;
 
-bool initialize();                         // Start up SDL and create window.
-bool load_rom(char *path);                 // Load the ROM.
-void handle_event(SDL_Event* event);       // Handle event.
-void draw_display(SDL_Renderer* renderer); // Draw the display.
-void close();                              // Destroy the window and quit SDL.
-
-void setRenderDrawColor(SDL_Renderer* renderer, SDL_Color c) {
-    SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, c.a);
-}
+bool parse_arguments(int argc, char *argv[]);   // Parse command line arguments.
+bool initialize();                              // Start up SDL and create window.
+bool load_rom(char *path);                      // Load the ROM.
+void generate_sound();                          // Generate the sound samples.
+void handle_event(SDL_Event* event);            // Handle event.
+void draw_display(SDL_Renderer* renderer);      // Draw the display.
+void close();                                   // Destroy the window and quit SDL.
 
 int main(int argc, char *argv[]) {
     // Parse command line arguments.
@@ -56,42 +72,63 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    last_cycle_time = last_update_time = SDL_GetTicks();
+    // Generate sound wave.
+    generate_sound();
+
+    // Initialize variables.
+    cycles_per_ms = MIN_CYCLES_PER_MS * (1 << (speed - 1));
+    unsigned int last_cycle_time = SDL_GetTicks();
+    double last_update_time = SDL_GetTicks();
+    float num_cycles = 0.0;
+    int update_count = 0;
 
     // Run the emulator.
     SDL_Event event;
     while (true) {
-        while (SDL_PollEvent(&event) != 0) {
-            if (event.type == SDL_QUIT) {
-                close();
-                return 0;
-            }
-
-            handle_event(&event);
-        }
-
         // Update the number of cycles to run.
-        while (SDL_GetTicks() > last_cycle_time + 1) {
-            num_cycles += cycles_per_ms;
-            last_cycle_time += 1;
-        }
-
-        // Update the CPU's timers.
-        while (SDL_GetTicks() > last_update_time + 17) {
-            cpu.update_timers();
-            last_update_time += 17;
-        }
+        unsigned int current_time = SDL_GetTicks();
+        num_cycles += (current_time - last_cycle_time) * cycles_per_ms;
+        last_cycle_time = current_time;
 
         // Update the CPU.
         while (num_cycles >= 1) {
+            // Handle events.
+            while (SDL_PollEvent(&event) != 0) {
+                if (event.type == SDL_QUIT) {
+                    close();
+                    return 0;
+                }
+
+                handle_event(&event);
+            }
+            
+            // Update the CPU's timers at a rate of 60Hz.
+            while (SDL_GetTicks() > last_update_time + 16.666667) {
+                cpu.update_timers();
+                last_update_time += 16.666667;
+                update_count++;
+
+                if (update_count == 60) {
+                    last_update_time -= 0.00002;
+                    update_count = 0;
+                }
+            }
+
             cpu.cycle();
             num_cycles -= 1;
-        }
 
-        // Redraw the display.
-        if (cpu.is_draw_flag()) {
-            draw_display(renderer);
-            cpu.reset_draw_flag();
+            // Redraw the display.
+            if (cpu.is_draw_flag()) {
+                draw_display(renderer);
+                cpu.reset_draw_flag();
+            }
+
+            // Play sound.
+            if (cpu.is_sound_flag()) {
+                beep.alen = (SAMPLE_FREQUENCY * cpu.get_sound_duration()) / 30;
+                Mix_PlayChannel(-1, &beep, 0);
+                cpu.reset_sound_flag();
+            }
         }
     }
 
@@ -100,7 +137,7 @@ int main(int argc, char *argv[]) {
 
 bool initialize() {
     // Initialize SDL.
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
         printf("SDL could not initialize. SDL_Error: %s\n", SDL_GetError());
         return false;
     }
@@ -118,6 +155,12 @@ bool initialize() {
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (renderer == NULL) {
         printf("Renderer could not be created. SDL_ERROR: %s\n", SDL_GetError());
+        return false;
+    }
+
+    // Initialize SDL_mixer
+    if (Mix_OpenAudio(SAMPLE_FREQUENCY, MIX_DEFAULT_FORMAT, 1, 2048) < 0) {
+        printf("SDL_mixer could not initialize. SDL_mixer Error: %s\n", Mix_GetError());
         return false;
     }
 
@@ -150,6 +193,23 @@ bool load_rom(char *path) {
     return false;
 }
 
+void generate_sound() {
+    int period = SAMPLE_FREQUENCY / TONE_FREQUENCY;
+    int half_period = 0.5 * period;
+    int num_samples = period * TONE_FREQUENCY * MAX_SECONDS;
+    Uint32 num_bytes = 2 * num_samples;
+
+    audio_buffer = new Uint8[num_bytes];
+
+    // Generate square wave.
+    for (int i = 0; i < num_samples; i++) {
+        audio_buffer[2 * i]     = 0;
+        audio_buffer[2 * i + 1] = (i / half_period) % 2 ? TONE_VOLUME : -TONE_VOLUME;
+    }
+
+    beep = {0, audio_buffer, num_bytes, SOUND_VOLUME};
+}
+
 void handle_event(SDL_Event* event) {
     switch (event->type) {
         case SDL_KEYDOWN:
@@ -160,21 +220,18 @@ void handle_event(SDL_Event* event) {
                 }
             }
 
-            // Decrease the number of cycles per ms if "-" is pressed.
+            // Decrease the emulator speed if "-" is pressed.
             if (event->key.keysym.sym == SDLK_MINUS) {
-                cycles_per_ms /= 2;
-                if (cycles_per_ms < MIN_CYCLES_PER_MS) {
-                    cycles_per_ms = MIN_CYCLES_PER_MS;
-                }
+                speed = speed > 1 ? speed - 1 : 1;
+                cycles_per_ms = MIN_CYCLES_PER_MS * (1 << (speed - 1));
             }
 
-            // Increase the number of cycles per ms if "+" is pressed.
+            // Increase the emulator speed if "+" is pressed.
             else if (event->key.keysym.sym == SDLK_EQUALS) {
-                cycles_per_ms *= 2;
-                if (cycles_per_ms > MAX_CYCLES_PER_MS) {
-                    cycles_per_ms = MAX_CYCLES_PER_MS;
-                }
+                speed = speed < MAX_SPEED ? speed + 1 : MAX_SPEED;
+                cycles_per_ms = MIN_CYCLES_PER_MS * (1 << (speed - 1));
             }
+
             break;
 
         case SDL_KEYUP:
@@ -208,12 +265,16 @@ void draw_display(SDL_Renderer* renderer) {
 }
 
 void close() {
-    // Destroy window.
+    // Delete audio buffer.
+    delete[] audio_buffer;
+
+    // Delete window and renderer.
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     renderer = NULL;
     window = NULL;
 
     // Quit SDL subsystems.
+    Mix_Quit();
     SDL_Quit();
 }
