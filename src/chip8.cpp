@@ -102,82 +102,78 @@ void Chip8::reset_draw_flag() { draw_flag_ = false; }
 void Chip8::reset_sound_flag() { sound_flag_ = false; }
 byte Chip8::get_sound_duration() { return sound_duration_; }
 
-// -----------------------------------------------------------------------------------
-// Decoding and executing operations:
-// -----------------------------------------------------------------------------------
-
 // Decode and execute the operation.
 void Chip8::exec_operation() {
-    static Operation opcode_table[16] = {
-        &Chip8::exec_zero,                  // 0XYZ
-        &Chip8::jump,                       // 1NNN
-        &Chip8::call,                       // 2NNN
-        &Chip8::skip_eq_const,              // 3XNN
-        &Chip8::skip_neq_const,             // 4XNN
-        &Chip8::skip_eq,                    // 5XY0
-        &Chip8::assign_const,               // 6XNN
-        &Chip8::add_const,                  // 7XNN
-        &Chip8::exec_arithmetic,            // 8XYZ
-        &Chip8::skip_neq,                   // 9XY0
-        &Chip8::set_index,                  // ANNN
-        &Chip8::jump_offset,                // BNNN
-        &Chip8::random_number,              // CXNN
-        &Chip8::draw,                       // DXYN
-        &Chip8::exec_key,                   // EXYZ
-        &Chip8::exec_memory,                // FXYZ
-    };
-    (this->*opcode_table[(opcode_ & 0xF000) >> 12])();
-}
-
-void Chip8::exec_arithmetic() {
-    switch (opcode_ & 0x000F) {
-        case 0x0:   assign();       break;  // 8XY0
-        case 0x1:   bitwise_or();   break;  // 8XY1
-        case 0x2:   bitwise_and();  break;  // 8XY2
-        case 0x3:   bitwise_xor();  break;  // 8XY3
-        case 0x4:   add();          break;  // 8XY4
-        case 0x5:   sub();          break;  // 8XY5
-        case 0x6:   shift_right();  break;  // 8XY6
-        case 0x7:   sub_reverse();  break;  // 8XY7
-        case 0xE:   shift_left();   break;  // 8XYE
-        default:    nop();          break;
+    switch ((opcode_ & 0xF000) >> 12) {
+        case 0x0:   exec_zero();        break;  // 0XYZ
+        case 0x1:   jump();             break;  // 1NNN
+        case 0x2:   call();             break;  // 2NNN
+        case 0x3:   skip_eq_const();    break;  // 3XNN
+        case 0x4:   skip_neq_const();   break;  // 4XNN
+        case 0x5:   skip_eq();          break;  // 5XY0
+        case 0x6:   assign_const();     break;  // 6XNN
+        case 0x7:   add_const();        break;  // 7XNN
+        case 0x8:   exec_arithmetic();  break;  // 8XYZ
+        case 0x9:   skip_neq();         break;  // 9XY0
+        case 0xA:   set_index();        break;  // ANNN
+        case 0xB:   jump_offset();      break;  // BNNN
+        case 0xC:   random_number();    break;  // CXNN
+        case 0xD:   draw();             break;  // DXYN
+        case 0xE:   exec_key();         break;  // EXYZ
+        case 0xF:   exec_memory();      break;  // FXYZ
+        default:    nop();              break;
     }
 }
 
+// Decode and execute operations starting with 0.
 void Chip8::exec_zero() {
     switch (opcode_ & 0x0FFF) {
-        case 0x0E0: clear();        break;  // 00E0
-        case 0x0EE: ret();          break;  // 00EE
-        default:    nop();          break;
+        case 0x0E0: clear();            break;  // 00E0
+        case 0x0EE: ret();              break;  // 00EE
+        default:    nop();              break;
     }
 }
 
+// Decode and execute operations starting with 8.
+void Chip8::exec_arithmetic() {
+    switch (opcode_ & 0x000F) {
+        case 0x0:   assign();           break;  // 8XY0
+        case 0x1:   bitwise_or();       break;  // 8XY1
+        case 0x2:   bitwise_and();      break;  // 8XY2
+        case 0x3:   bitwise_xor();      break;  // 8XY3
+        case 0x4:   add();              break;  // 8XY4
+        case 0x5:   sub();              break;  // 8XY5
+        case 0x6:   shift_right();      break;  // 8XY6
+        case 0x7:   sub_reverse();      break;  // 8XY7
+        case 0xE:   shift_left();       break;  // 8XYE
+        default:    nop();              break;
+    }
+}
+
+// Decode and execute operations starting with E.
 void Chip8::exec_key() {
     switch (opcode_ & 0x00FF) {
-        case 0x9E:  skip_eq_key();  break;  // EX9E
-        case 0xA1:  skip_neq_key(); break;  // EXA1
-        default:    nop();          break;
+        case 0x9E:  skip_eq_key();      break;  // EX9E
+        case 0xA1:  skip_neq_key();     break;  // EXA1
+        default:    nop();              break;
     }
 }
 
+// Decode and execute operations starting with F.
 void Chip8::exec_memory() {
     switch (opcode_ & 0x00FF) {
-        case 0x07:  get_delay();    break;  // FX07
-        case 0x0A:  get_key();      break;  // FX0A
-        case 0x15:  set_delay();    break;  // FX15
-        case 0x18:  set_sound();    break;  // FX18
-        case 0x1E:  add_index();    break;  // FX1E
-        case 0x29:  sprite_addr();  break;  // FX29
-        case 0x33:  bcd();          break;  // FX33
-        case 0x55:  reg_dump();     break;  // FX55
-        case 0x65:  reg_load();     break;  // FX65
-        default:    nop();          break;
+        case 0x07:  get_delay();        break;  // FX07
+        case 0x0A:  get_key();          break;  // FX0A
+        case 0x15:  set_delay();        break;  // FX15
+        case 0x18:  set_sound();        break;  // FX18
+        case 0x1E:  add_index();        break;  // FX1E
+        case 0x29:  sprite_addr();      break;  // FX29
+        case 0x33:  bcd();              break;  // FX33
+        case 0x55:  reg_dump();         break;  // FX55
+        case 0x65:  reg_load();         break;  // FX65
+        default:    nop();              break;
     }
 }
-
-// -----------------------------------------------------------------------------------
-// Chip8 instructions:
-// -----------------------------------------------------------------------------------
 
 // Invalid operation: do nothing.
 void Chip8::nop() {

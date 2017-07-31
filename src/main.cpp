@@ -44,7 +44,6 @@ Mix_Chunk beep;
 // CPU:
 Chip8 cpu;
 
-bool parse_arguments(int argc, char *argv[]);   // Parse command line arguments.
 bool initialize();                              // Start up SDL and create window.
 bool load_rom(char *path);                      // Load the ROM.
 void generate_sound();                          // Generate the sound samples.
@@ -56,6 +55,7 @@ int main(int argc, char *argv[]) {
     // Parse command line arguments.
     if (argc < 2) {
         printf("Error: missing argument.\n");
+        printf("Usage: ./chip8_emulator <path-to-rom>\n");
         return 1;
     }
 
@@ -90,7 +90,6 @@ int main(int argc, char *argv[]) {
         num_cycles += (current_time - last_cycle_time) * cycles_per_ms;
         last_cycle_time = current_time;
 
-        // Update the CPU.
         while (num_cycles >= 1) {
             // Handle events.
             while (SDL_PollEvent(&event) != 0) {
@@ -114,6 +113,7 @@ int main(int argc, char *argv[]) {
                 }
             }
 
+            // Update the CPU.
             cpu.cycle();
             num_cycles -= 1;
 
