@@ -25,10 +25,10 @@ const int KEYMAP[16] = {
 };
 
 // Timing:
-const float MIN_CYCLES_PER_MS = 0.015625;
-const int MAX_SPEED           = 10;
+const double MIN_CYCLES_PER_MS = 0.015625;
+const int MAX_SPEED            = 10;
 
-float cycles_per_ms;
+double cycles_per_ms;
 int speed = 6;
 
 // Sound:
@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
     cycles_per_ms = MIN_CYCLES_PER_MS * (1 << (speed - 1));
     unsigned int last_cycle_time = SDL_GetTicks();
     double last_update_time = SDL_GetTicks();
-    float num_cycles = 0.0;
+    double num_cycles = 0.0;
     int update_count = 0;
 
     // Run the emulator.
