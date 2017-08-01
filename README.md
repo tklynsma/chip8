@@ -26,7 +26,7 @@ This should create two executables: ```chip8_emulator``` and ```chip8_tests```. 
 ```
 
 ## Input
-Computers which used the Chip-8 VM had a 16-key hexadecimal keypad. This layout has been mapped as follows:
+The computers which used the Chip-8 VM had a 16-key hexadecimal keypad. This layout has been mapped as follows:
 
 ```
    Hex. Keypad                      Keyboard
