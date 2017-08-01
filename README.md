@@ -41,6 +41,8 @@ The computers which used the Chip-8 VM had a 16-key hexadecimal keypad. This lay
 +---+---+---+---+               +---+---+---+---+
 ```
 
+In addition it is possible to increase the emulation speed by pressing ```+``` and to decrease the emulation speed by pressing ```-```. Note that this does not affect the delay and sound timers, which are both updated at a constant rate of 60Hz.
+
 ## Resources
 * CHIP-8 Wikipedia: https://en.wikipedia.org/wiki/CHIP-8
 * How to write an emulator (CHIP-8 interpreter): http://www.multigesture.net/articles/how-to-write-an-emulator-chip-8-interpreter/
