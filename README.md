@@ -19,7 +19,7 @@ cmake ..
 make
 ```
 
-This should create two executables: ```chip8_emulator``` and ```chip8_tests```. To use the emulator you need to provide the path to the ROM file as argument. Some existing ROM's can be found in the ```/roms``` directory. For example to load Tetris use:
+This should create two executables: ```chip8_emulator``` and ```chip8_tests```. To use the emulator you need to provide the path to the ROM file as argument. Some existing ROM's can be found in the [/roms](/roms) directory. For example to load Tetris use:
 
 ```
 ./chip8_emulator ../roms/Tetris
@@ -42,6 +42,6 @@ Computers which used the Chip-8 VM had a 16-key hexadecimal keypad. This layout 
 ```
 
 ## Resources
-* Chip-8 Wikipedia: https://en.wikipedia.org/wiki/CHIP-8
+* CHIP-8 Wikipedia: https://en.wikipedia.org/wiki/CHIP-8
 * How to write an emulator (CHIP-8 interpreter): http://www.multigesture.net/articles/how-to-write-an-emulator-chip-8-interpreter/
 * Cowgod's Chip-8 Technical Reference v1.0: http://devernay.free.fr/hacks/chip8/C8TECH10.HTM
