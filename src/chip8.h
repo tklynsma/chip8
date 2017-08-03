@@ -8,6 +8,7 @@ class Chip8;
 
 typedef unsigned char byte;
 typedef unsigned short word;
+typedef void (Chip8::*Operation)();
 
 const int MEM_SIZE       = 4096;
 const int REG_SIZE       = 16;

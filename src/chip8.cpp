@@ -103,30 +103,30 @@ void Chip8::reset_sound_flag() { sound_flag_ = false; }
 byte Chip8::get_sound_duration() { return sound_duration_; }
 
 // Decode and execute the operation.
-void Chip8::exec_operation() {
-    switch ((opcode_ & 0xF000) >> 12) {
-        case 0x0:   exec_zero();        break;  // 0XYZ
-        case 0x1:   jump();             break;  // 1NNN
-        case 0x2:   call();             break;  // 2NNN
-        case 0x3:   skip_eq_const();    break;  // 3XNN
-        case 0x4:   skip_neq_const();   break;  // 4XNN
-        case 0x5:   skip_eq();          break;  // 5XY0
-        case 0x6:   assign_const();     break;  // 6XNN
-        case 0x7:   add_const();        break;  // 7XNN
-        case 0x8:   exec_arithmetic();  break;  // 8XYZ
-        case 0x9:   skip_neq();         break;  // 9XY0
-        case 0xA:   set_index();        break;  // ANNN
-        case 0xB:   jump_offset();      break;  // BNNN
-        case 0xC:   random_number();    break;  // CXNN
-        case 0xD:   draw();             break;  // DXYN
-        case 0xE:   exec_key();         break;  // EXYZ
-        case 0xF:   exec_memory();      break;  // FXYZ
-        default:    nop();              break;
-    }
+inline void Chip8::exec_operation() {
+    static Operation opcode_table[16] = {
+        &Chip8::exec_zero,                  // 0XYZ
+        &Chip8::jump,                       // 1NNN
+        &Chip8::call,                       // 2NNN
+        &Chip8::skip_eq_const,              // 3XNN
+        &Chip8::skip_neq_const,             // 4XNN
+        &Chip8::skip_eq,                    // 5XY0
+        &Chip8::assign_const,               // 6XNN
+        &Chip8::add_const,                  // 7XNN
+        &Chip8::exec_arithmetic,            // 8XYZ
+        &Chip8::skip_neq,                   // 9XY0
+        &Chip8::set_index,                  // ANNN
+        &Chip8::jump_offset,                // BNNN
+        &Chip8::random_number,              // CXNN
+        &Chip8::draw,                       // DXYN
+        &Chip8::exec_key,                   // EXYZ
+        &Chip8::exec_memory,                // FXYZ
+    };
+    (this->*opcode_table[(opcode_ & 0xF000) >> 12])();
 }
 
 // Decode and execute operations starting with 0.
-void Chip8::exec_zero() {
+inline void Chip8::exec_zero() {
     switch (opcode_ & 0x0FFF) {
         case 0x0E0: clear();            break;  // 00E0
         case 0x0EE: ret();              break;  // 00EE
@@ -135,7 +135,7 @@ void Chip8::exec_zero() {
 }
 
 // Decode and execute operations starting with 8.
-void Chip8::exec_arithmetic() {
+inline void Chip8::exec_arithmetic() {
     switch (opcode_ & 0x000F) {
         case 0x0:   assign();           break;  // 8XY0
         case 0x1:   bitwise_or();       break;  // 8XY1
@@ -151,7 +151,7 @@ void Chip8::exec_arithmetic() {
 }
 
 // Decode and execute operations starting with E.
-void Chip8::exec_key() {
+inline void Chip8::exec_key() {
     switch (opcode_ & 0x00FF) {
         case 0x9E:  skip_eq_key();      break;  // EX9E
         case 0xA1:  skip_neq_key();     break;  // EXA1
@@ -160,7 +160,7 @@ void Chip8::exec_key() {
 }
 
 // Decode and execute operations starting with F.
-void Chip8::exec_memory() {
+inline void Chip8::exec_memory() {
     switch (opcode_ & 0x00FF) {
         case 0x07:  get_delay();        break;  // FX07
         case 0x0A:  get_key();          break;  // FX0A
@@ -176,12 +176,12 @@ void Chip8::exec_memory() {
 }
 
 // Invalid operation: do nothing.
-void Chip8::nop() {
+inline void Chip8::nop() {
     pc_ += 2;
 }
 
 // 00E0: Clears the screen.
-void Chip8::clear() {
+inline void Chip8::clear() {
     for (int i = 0; i < DISPLAY_WIDTH; i++) {
         for (int j = 0; j < DISPLAY_HEIGHT; j++) {
             display_[i][j] = 0;
@@ -192,76 +192,76 @@ void Chip8::clear() {
 }
 
 // 00EE: Return from subroutine.
-void Chip8::ret() {
+inline void Chip8::ret() {
     pc_ = stack_[--sp_] + 2;
 }
 
 // 1NNN: Jump to address NNN.
-void Chip8::jump() {
+inline void Chip8::jump() {
     pc_ = opcode_ & 0x0FFF;
 }
 
 // 2NNN: Calls subroutine at NNN.
-void Chip8::call() {
+inline void Chip8::call() {
     stack_[sp_++] = pc_;
     pc_ = opcode_ & 0x0FFF;
 }
 
 // 3XNN: Skips the next instruction if VX == NN.
-void Chip8::skip_eq_const() {
+inline void Chip8::skip_eq_const() {
     pc_ = V_[(opcode_ & 0x0F00) >> 8] == (opcode_ & 0x00FF) ? pc_ + 4 : pc_ + 2;
 }
 
 // 4XNN: Skips the next instruction if VX != NN.
-void Chip8::skip_neq_const() {
+inline void Chip8::skip_neq_const() {
     pc_ = V_[(opcode_ & 0x0F00) >> 8] != (opcode_ & 0x00FF) ? pc_ + 4 : pc_ + 2;
 }
 
 // 5XY0: Skips the next instruction if VX == VY.
-void Chip8::skip_eq() {
+inline void Chip8::skip_eq() {
     byte X = (opcode_ & 0x0F00) >> 8;
     byte Y = (opcode_ & 0x00F0) >> 4;
     pc_ = V_[X] == V_[Y] && (opcode_ & 0x000F) == 0 ? pc_ + 4 : pc_ + 2;
 }
 
 // 6XNN: Set VX to NN.
-void Chip8::assign_const() {
+inline void Chip8::assign_const() {
     V_[(opcode_ & 0x0F00) >> 8]  = opcode_ & 0x00FF;
     pc_ += 2;
 }
 
 // 7XNN: Add NN to VX.
-void Chip8::add_const() {
+inline void Chip8::add_const() {
     V_[(opcode_ & 0x0F00) >> 8] += opcode_ & 0x00FF;
     pc_ += 2;
 }
 
 // 8XY0: Assign VY to VX.
-void Chip8::assign() {
+inline void Chip8::assign() {
     V_[(opcode_ & 0x0F00) >> 8]  = V_[(opcode_ & 0x00F0) >> 4];
     pc_ += 2;
 }
 
 // 8XY1: Set VX to VX or VY (Bitwise OR).
-void Chip8::bitwise_or() {
+inline void Chip8::bitwise_or() {
     V_[(opcode_ & 0x0F00) >> 8] |= V_[(opcode_ & 0x00F0) >> 4];
     pc_ += 2;
 }
 
 // 8XY2: Set VX to VX and VY (Bitwise AND).
-void Chip8::bitwise_and() {
+inline void Chip8::bitwise_and() {
     V_[(opcode_ & 0x0F00) >> 8] &= V_[(opcode_ & 0x00F0) >> 4];
     pc_ += 2;
 }
 
 // 8XY3: Set VX to VX xor VY (Bitwise XOR).
-void Chip8::bitwise_xor() {
+inline void Chip8::bitwise_xor() {
     V_[(opcode_ & 0x0F00) >> 8] ^= V_[(opcode_ & 0x00F0) >> 4];
     pc_ += 2;
 }
 
 // 8XY4: Adds VY to VX. Set VF to 1 if there is a carry.
-void Chip8::add() {
+inline void Chip8::add() {
     byte X = (opcode_ & 0x0F00) >> 8;
     byte Y = (opcode_ & 0x00F0) >> 4;
     V_[0xF] = V_[X] + V_[Y] > 0xFF ? 1 : 0;
@@ -270,7 +270,7 @@ void Chip8::add() {
 }
 
 // 8XY5: Substract VY from VX. Set VF to 0 if there is a borrow.
-void Chip8::sub() {
+inline void Chip8::sub() {
     byte X = (opcode_ & 0x0F00) >> 8;
     byte Y = (opcode_ & 0x00F0) >> 4;
     V_[0xF] = V_[X] < V_[Y] ? 0 : 1;
@@ -279,7 +279,7 @@ void Chip8::sub() {
 }
 
 // 8XY6: Set VF to the least significant bit of VX and shift VX right by 1.
-void Chip8::shift_right() {
+inline void Chip8::shift_right() {
     byte X = (opcode_ & 0x0F00) >> 8;
     V_[0xF] = V_[X] & 0x1;
     V_[X] >>= 1;
@@ -287,7 +287,7 @@ void Chip8::shift_right() {
 }
 
 // 8XY7: Sets VX to VY minus VX. Set VF to 0 if there is a borrow.
-void Chip8::sub_reverse() {
+inline void Chip8::sub_reverse() {
     byte X = (opcode_ & 0x0F00) >> 8;
     byte Y = (opcode_ & 0x00F0) >> 4;
     V_[0xF] = V_[Y] < V_[X] ? 0 : 1;
@@ -296,7 +296,7 @@ void Chip8::sub_reverse() {
 }
 
 // 8XYE: Set VF to the most significant bit of VX and shift VX left by 1.
-void Chip8::shift_left() {
+inline void Chip8::shift_left() {
     byte X = (opcode_ & 0x0F00) >> 8;
     V_[0xF] = V_[X] >> 7;
     V_[X] <<= 1;
@@ -304,32 +304,32 @@ void Chip8::shift_left() {
 }
 
 // 9XY0: Skips the next instruction if VX != VY.
-void Chip8::skip_neq() {
+inline void Chip8::skip_neq() {
     byte X = (opcode_ & 0x0F00) >> 8;
     byte Y = (opcode_ & 0x00F0) >> 4;
     pc_ = V_[X] != V_[Y] && (opcode_ & 0x000F) == 0 ? pc_ + 4 : pc_ + 2;
 }
 
 // ANNN: Sets I to the address NNN.
-void Chip8::set_index() {
+inline void Chip8::set_index() {
     I_ = opcode_ & 0x0FFF;
     pc_ += 2;
 }
 
 // BNNN: Jumps to the address NNN plus V0.
-void Chip8::jump_offset() {
+inline void Chip8::jump_offset() {
     pc_ = V_[0] + (opcode_ & 0x0FFF);
 }
 
 // CXNN: Sets VX to a random number with a mask of NN.
-void Chip8::random_number() {
+inline void Chip8::random_number() {
     V_[(opcode_ & 0x0F00) >> 8] = (rand() % 256) & (opcode_ & 0x00FF);
     pc_ += 2;
 }
 
 // DXYN: Draws the (bit-coded) sprite stored at address I at coordinate (VX, VY)
 // of size 8xN. Set VF to 1 if any pixel is flipped from set to unset (collision).
-void Chip8::draw() {
+inline void Chip8::draw() {
     int x_start = V_[(opcode_ & 0x0F00) >> 8];
     int y_start = V_[(opcode_ & 0x00F0) >> 4];
     int height  = opcode_ & 0x000F;
@@ -352,23 +352,23 @@ void Chip8::draw() {
 }
 
 // EX9E: Skips the next instruction if the key stored in VX is pressed.
-void Chip8::skip_eq_key() {
+inline void Chip8::skip_eq_key() {
     pc_ = key_[V_[(opcode_ & 0x0F00) >> 8]] ? pc_ + 4 : pc_ + 2;
 }
 
 // EXA1: Skips the next instruction if the key stored in VX is not pressed.
-void Chip8::skip_neq_key() {
+inline void Chip8::skip_neq_key() {
     pc_ = key_[V_[(opcode_ & 0x0F00) >> 8]] ? pc_ + 2 : pc_ + 4;
 }
 
 // FX07: Sets VX to the value of the delay timer.
-void Chip8::get_delay() {
+inline void Chip8::get_delay() {
     V_[(opcode_ & 0x0F00) >> 8] = delay_timer_;
     pc_ += 2;
 }
 
 // FX0A: A key press is awaited, and then stored in VX.
-void Chip8::get_key() {
+inline void Chip8::get_key() {
     if (!store_key_) {
         // Check if any key is already pressed and if so store it in VX.
         for (byte i = 0; i < 16; i++) {
@@ -386,13 +386,13 @@ void Chip8::get_key() {
 }
 
 // FX15: Sets the delay timer to VX.
-void Chip8::set_delay() {
+inline void Chip8::set_delay() {
     delay_timer_ = V_[(opcode_ & 0x0F00) >> 8];
     pc_ += 2;
 }
 
 // FX18: Sets the sound timer to VX.
-void Chip8::set_sound() {
+inline void Chip8::set_sound() {
     if (!sound_flag_) {
         sound_timer_ = sound_duration_ = V_[(opcode_ & 0x0F00) >> 8];
         sound_flag_ = true;
@@ -401,13 +401,13 @@ void Chip8::set_sound() {
 }
 
 // FX1E: Adds VX to I.
-void Chip8::add_index() {
+inline void Chip8::add_index() {
     I_ += V_[(opcode_ & 0x0F00) >> 8];
     pc_ += 2;
 }
 
 // FX29: Sets I to the location of the sprite for the character in VX.
-void Chip8::sprite_addr() {
+inline void Chip8::sprite_addr() {
     I_ = 5 * V_[(opcode_ & 0x0F00) >> 8];
     pc_ += 2;
 }
@@ -415,7 +415,7 @@ void Chip8::sprite_addr() {
 // FX33: Stores the binary-coded-decimal representation of VX, with the most signi-
 // ficant of three digits at address I, the middle digit at addres I plus one, and
 // and the least significant digit at I plus two.
-void Chip8::bcd() {
+inline void Chip8::bcd() {
     byte X = (opcode_ & 0x0F00) >> 8;
     memory_[I_]   = V_[X] / 100;
     memory_[I_+1] = (V_[X] / 10) % 10;
@@ -424,7 +424,7 @@ void Chip8::bcd() {
 }
 
 // FX55: Stores V0 to VX (including) in memory starting at address I.
-void Chip8::reg_dump() {
+inline void Chip8::reg_dump() {
     for (byte i = 0; i <= (opcode_ & 0x0F00) >> 8; i++) {
         memory_[I_+i] = V_[i];
     }
@@ -432,7 +432,7 @@ void Chip8::reg_dump() {
 }
 
 // FX65: Fills V0 to VX (including) with values from memory starting at address I.
-void Chip8::reg_load() {
+inline void Chip8::reg_load() {
     for (byte i = 0; i <= (opcode_ & 0x0F00) >> 8; i++) {
         V_[i] = memory_[I_+i];
     }
