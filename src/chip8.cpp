@@ -104,25 +104,25 @@ byte Chip8::get_sound_duration() { return sound_duration_; }
 
 // Decode and execute the operation.
 inline void Chip8::exec_operation() {
-    static Operation opcode_table[16] = {
-        &Chip8::exec_zero,                  // 0XYZ
-        &Chip8::jump,                       // 1NNN
-        &Chip8::call,                       // 2NNN
-        &Chip8::skip_eq_const,              // 3XNN
-        &Chip8::skip_neq_const,             // 4XNN
-        &Chip8::skip_eq,                    // 5XY0
-        &Chip8::assign_const,               // 6XNN
-        &Chip8::add_const,                  // 7XNN
-        &Chip8::exec_arithmetic,            // 8XYZ
-        &Chip8::skip_neq,                   // 9XY0
-        &Chip8::set_index,                  // ANNN
-        &Chip8::jump_offset,                // BNNN
-        &Chip8::random_number,              // CXNN
-        &Chip8::draw,                       // DXYN
-        &Chip8::exec_key,                   // EXYZ
-        &Chip8::exec_memory,                // FXYZ
-    };
-    (this->*opcode_table[(opcode_ & 0xF000) >> 12])();
+    switch ((opcode_ & 0xF000) >> 12) {
+        case 0x0:   exec_zero();        break;  // 0XYZ
+        case 0x1:   jump();             break;  // 1NNN
+        case 0x2:   call();             break;  // 2NNN
+        case 0x3:   skip_eq_const();    break;  // 3XNN
+        case 0x4:   skip_neq_const();   break;  // 4XNN
+        case 0x5:   skip_eq();          break;  // 5XY0
+        case 0x6:   assign_const();     break;  // 6XNN
+        case 0x7:   add_const();        break;  // 7XNN
+        case 0x8:   exec_arithmetic();  break;  // 8XYZ
+        case 0x9:   skip_neq();         break;  // 9XY0
+        case 0xA:   set_index();        break;  // ANNN
+        case 0xB:   jump_offset();      break;  // BNNN
+        case 0xC:   random_number();    break;  // CXNN
+        case 0xD:   draw();             break;  // DXYN
+        case 0xE:   exec_key();         break;  // EXYZ
+        case 0xF:   exec_memory();      break;  // FXYZ
+        default:    nop();              break;
+    }
 }
 
 // Decode and execute operations starting with 0.
@@ -219,9 +219,8 @@ inline void Chip8::skip_neq_const() {
 
 // 5XY0: Skips the next instruction if VX == VY.
 inline void Chip8::skip_eq() {
-    byte X = (opcode_ & 0x0F00) >> 8;
-    byte Y = (opcode_ & 0x00F0) >> 4;
-    pc_ = V_[X] == V_[Y] && (opcode_ & 0x000F) == 0 ? pc_ + 4 : pc_ + 2;
+    pc_ = V_[(opcode_ & 0x0F00) >> 8] == V_[(opcode_ & 0x00F0) >> 4] &&
+        (opcode_ & 0x000F) == 0 ? pc_ + 4 : pc_ + 2;
 }
 
 // 6XNN: Set VX to NN.
@@ -305,9 +304,8 @@ inline void Chip8::shift_left() {
 
 // 9XY0: Skips the next instruction if VX != VY.
 inline void Chip8::skip_neq() {
-    byte X = (opcode_ & 0x0F00) >> 8;
-    byte Y = (opcode_ & 0x00F0) >> 4;
-    pc_ = V_[X] != V_[Y] && (opcode_ & 0x000F) == 0 ? pc_ + 4 : pc_ + 2;
+    pc_ = V_[(opcode_ & 0x0F00) >> 8] != V_[(opcode_ & 0x00F0) >> 4] &&
+        (opcode_ & 0x000F) == 0 ? pc_ + 4 : pc_ + 2;
 }
 
 // ANNN: Sets I to the address NNN.

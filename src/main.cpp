@@ -24,9 +24,13 @@ const int KEYMAP[16] = {
     SDLK_4, SDLK_r, SDLK_f, SDLK_v
 };
 
+const int KEY_INCREASE = SDLK_EQUALS;
+const int KEY_DECREASE = SDLK_MINUS;
+
 // Timing:
 const double MIN_CYCLES_PER_MS = 0.015625;
 const int MAX_SPEED            = 10;
+const int MIN_SPEED            = 1;
 
 double cycles_per_ms;
 int speed = 6;
@@ -85,50 +89,50 @@ int main(int argc, char *argv[]) {
     // Run the emulator.
     SDL_Event event;
     while (true) {
-        // Update the number of cycles to run.
+        // Handle events.
+        while (SDL_PollEvent(&event) != 0) {
+            if (event.type == SDL_QUIT) {
+                close();
+                return 0;
+            }
+
+            handle_event(&event);
+        }
+
+        // Update the CPU.
         unsigned int current_time = SDL_GetTicks();
         num_cycles += (current_time - last_cycle_time) * cycles_per_ms;
         last_cycle_time = current_time;
 
         while (num_cycles >= 1) {
-            // Handle events.
-            while (SDL_PollEvent(&event) != 0) {
-                if (event.type == SDL_QUIT) {
-                    close();
-                    return 0;
-                }
-
-                handle_event(&event);
-            }
-            
-            // Update the CPU's timers at a rate of 60Hz.
-            while (SDL_GetTicks() > last_update_time + 16.666667) {
-                cpu.update_timers();
-                last_update_time += 16.666667;
-                update_count++;
-
-                if (update_count == 60) {
-                    last_update_time -= 0.00002;
-                    update_count = 0;
-                }
-            }
-
-            // Update the CPU.
             cpu.cycle();
             num_cycles -= 1;
+        }
 
+        // Update the CPU's timers and the display at a rate of 60Hz.
+        while (SDL_GetTicks() > last_update_time + 16.667) {
             // Redraw the display.
             if (cpu.is_draw_flag()) {
                 draw_display(renderer);
                 cpu.reset_draw_flag();
             }
 
-            // Play sound.
-            if (cpu.is_sound_flag()) {
-                beep.alen = (SAMPLE_FREQUENCY * cpu.get_sound_duration()) / 30;
-                Mix_PlayChannel(-1, &beep, 0);
-                cpu.reset_sound_flag();
+            // Update the CPU's timers.
+            cpu.update_timers();
+            last_update_time += 16.667;
+            update_count++;
+
+            if (update_count == 60) {
+                last_update_time -= 0.02;
+                update_count = 0;
             }
+        }
+
+        // Play sound.
+        if (cpu.is_sound_flag()) {
+            beep.alen = (SAMPLE_FREQUENCY * cpu.get_sound_duration()) / 30;
+            Mix_PlayChannel(-1, &beep, 0);
+            cpu.reset_sound_flag();
         }
     }
 
@@ -198,7 +202,6 @@ void generate_sound() {
     int half_period = 0.5 * period;
     int num_samples = period * TONE_FREQUENCY * MAX_SECONDS;
     Uint32 num_bytes = 2 * num_samples;
-
     audio_buffer = new Uint8[num_bytes];
 
     // Generate square wave.
@@ -220,15 +223,15 @@ void handle_event(SDL_Event* event) {
                 }
             }
 
-            // Decrease the emulator speed if "-" is pressed.
-            if (event->key.keysym.sym == SDLK_MINUS) {
-                speed = speed > 1 ? speed - 1 : 1;
+            // Increase the emulator speed if the increase key is pressed.
+            if (event->key.keysym.sym == KEY_INCREASE) {
+                speed = speed < MAX_SPEED ? speed + 1 : MAX_SPEED;
                 cycles_per_ms = MIN_CYCLES_PER_MS * (1 << (speed - 1));
             }
 
-            // Increase the emulator speed if "+" is pressed.
-            else if (event->key.keysym.sym == SDLK_EQUALS) {
-                speed = speed < MAX_SPEED ? speed + 1 : MAX_SPEED;
+            // Decrease the emulator speed if the decrease key is pressed.
+            else if (event->key.keysym.sym == KEY_DECREASE) {
+                speed = speed > MIN_SPEED ? speed - 1 : MIN_SPEED;
                 cycles_per_ms = MIN_CYCLES_PER_MS * (1 << (speed - 1));
             }
 
