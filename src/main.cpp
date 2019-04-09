@@ -103,11 +103,7 @@ int main(int argc, char *argv[]) {
         unsigned int current_time = SDL_GetTicks();
         num_cycles += (current_time - last_cycle_time) * cycles_per_ms;
         last_cycle_time = current_time;
-
-        while (num_cycles >= 1) {
-            cpu.cycle();
-            num_cycles -= 1;
-        }
+        cpu.cycle(num_cycles);
 
         // Update the CPU's timers and the display at a rate of 60Hz.
         while (SDL_GetTicks() > last_update_time + 16.667) {

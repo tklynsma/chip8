@@ -20,7 +20,7 @@ class Chip8 {
     public:
         Chip8();
         void initialize();
-        void cycle();
+        void cycle(int num_cycles);
         void update_timers();
         void load_rom(char* data, int num_bytes);
         void set_key(byte index, bool value);

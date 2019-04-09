@@ -67,9 +67,12 @@ void Chip8::initialize() {
 }
 
 // Fetch, decode and execute the next operation.
-void Chip8::cycle() {
-    opcode_ = memory_[pc_] << 8 | memory_[pc_ + 1];
-    exec_operation();
+void Chip8::cycle(int num_cycles) {
+    while (num_cycles > 0) {
+        opcode_ = memory_[pc_] << 8 | memory_[pc_ + 1];
+        exec_operation();
+        num_cycles--;
+    }
 }
 
 // Load the rom into memory.
